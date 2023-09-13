@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -28,7 +29,13 @@ type worker struct {
 
 func (w worker) simulateMetrics(res *resource.Resource, exporter sdkmetric.Exporter) {
 	limiter := rate.NewLimiter(w.limitPerSecond, 1)
+
 	var i int64
+	value := 24.42
+	attrs := attribute.NewSet(attribute.KeyValue{
+		Key:   attribute.Key("status.code"),
+		Value: attribute.StringValue("STATUS_CODE_OK"),
+	})
 
 	for w.running.Load() {
 		rm := metricdata.ResourceMetrics{
@@ -37,12 +44,43 @@ func (w worker) simulateMetrics(res *resource.Resource, exporter sdkmetric.Expor
 				{
 					Metrics: []metricdata.Metrics{
 						{
-							Name: "gen",
+							Name: "gen.metric.gauge",
 							Data: metricdata.Gauge[int64]{
 								DataPoints: []metricdata.DataPoint[int64]{
 									{
+										Attributes: attrs,
 										Time:  time.Now(),
 										Value: i,
+									},
+								},
+							},
+						},
+						{
+							Name: "gen.metric.sum",
+							Data: metricdata.Sum[int64]{
+								IsMonotonic: true,
+								Temporality: metricdata.DeltaTemporality,
+								DataPoints: []metricdata.DataPoint[int64]{
+									{
+										Attributes: attrs,
+										StartTime:  time.Now(),
+										Time:       time.Now().Add(1 * time.Second),
+										Value:      i,
+									},
+								},
+							},
+						},
+						{
+							Name: "gen.metric.histogram",
+							Data: metricdata.Histogram[float64]{
+								Temporality: metricdata.CumulativeTemporality,
+								DataPoints: []metricdata.HistogramDataPoint[float64]{
+									{
+										Attributes: attrs,
+										Sum:        float64(float32(value)),
+										Max:        metricdata.NewExtrema(float64(float32(value))),
+										Min:        metricdata.NewExtrema(float64(float32(value))),
+										Count:      1,
 									},
 								},
 							},
@@ -51,6 +89,7 @@ func (w worker) simulateMetrics(res *resource.Resource, exporter sdkmetric.Expor
 				},
 			},
 		}
+
 		if err := exporter.Export(context.Background(), &rm); err != nil {
 			w.logger.Fatal("exporter failed", zap.Error(err))
 		}
