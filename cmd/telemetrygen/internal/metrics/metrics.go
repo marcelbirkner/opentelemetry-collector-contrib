@@ -17,7 +17,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
-	"google.golang.org/grpc"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen/internal/common"
 )
@@ -30,7 +29,7 @@ func Start(cfg *Config) error {
 	}
 	logger.Info("starting the metrics generator with configuration", zap.Any("config", cfg))
 
-	grpcExpOpt := []otlpmetricgrpc.Option{
+  grpcExpOpt := []otlpmetricgrpc.Option{
 		otlpmetricgrpc.WithEndpoint(cfg.Endpoint),
 		otlpmetricgrpc.WithDialOption(
 			grpc.WithBlock(),
