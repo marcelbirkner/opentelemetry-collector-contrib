@@ -38,17 +38,19 @@ func TestFixedNumberOfLogs(t *testing.T) {
 		},
 		NumLogs: 5,
 	}
-
-	exp := &mockExporter{}
+	m := &mockExporter{}
+	expFunc := func() (exporter, error) {
+		return m, nil
+	}
 
 	// test
 	logger, _ := zap.NewDevelopment()
-	require.NoError(t, Run(cfg, exp, logger))
+	require.NoError(t, Run(cfg, expFunc, logger))
 
 	time.Sleep(1 * time.Second)
 
 	// verify
-	require.Len(t, exp.logs, 5)
+	require.Len(t, m.logs, 5)
 }
 
 func TestRateOfLogs(t *testing.T) {
@@ -59,16 +61,19 @@ func TestRateOfLogs(t *testing.T) {
 			WorkerCount:   1,
 		},
 	}
-	exp := &mockExporter{}
+	m := &mockExporter{}
+	expFunc := func() (exporter, error) {
+		return m, nil
+	}
 
 	// test
-	require.NoError(t, Run(cfg, exp, zap.NewNop()))
+	require.NoError(t, Run(cfg, expFunc, zap.NewNop()))
 
 	// verify
 	// the minimum acceptable number of logs for the rate of 10/sec for half a second
-	assert.True(t, len(exp.logs) >= 5, "there should have been 5 or more logs, had %d", len(exp.logs))
+	assert.True(t, len(m.logs) >= 5, "there should have been 5 or more logs, had %d", len(m.logs))
 	// the maximum acceptable number of logs for the rate of 10/sec for half a second
-	assert.True(t, len(exp.logs) <= 20, "there should have been less than 20 logs, had %d", len(exp.logs))
+	assert.True(t, len(m.logs) <= 20, "there should have been less than 20 logs, had %d", len(m.logs))
 }
 
 func TestUnthrottled(t *testing.T) {
@@ -78,13 +83,16 @@ func TestUnthrottled(t *testing.T) {
 			WorkerCount:   1,
 		},
 	}
-	exp := &mockExporter{}
+	m := &mockExporter{}
+	expFunc := func() (exporter, error) {
+		return m, nil
+	}
 
 	// test
 	logger, _ := zap.NewDevelopment()
-	require.NoError(t, Run(cfg, exp, logger))
+	require.NoError(t, Run(cfg, expFunc, logger))
 
-	assert.True(t, len(exp.logs) > 100, "there should have been more than 100 logs, had %d", len(exp.logs))
+	assert.True(t, len(m.logs) > 100, "there should have been more than 100 logs, had %d", len(m.logs))
 }
 
 func TestCustomBody(t *testing.T) {
@@ -95,29 +103,34 @@ func TestCustomBody(t *testing.T) {
 			WorkerCount: 1,
 		},
 	}
-	exp := &mockExporter{}
+	m := &mockExporter{}
+	expFunc := func() (exporter, error) {
+		return m, nil
+	}
 
 	// test
 	logger, _ := zap.NewDevelopment()
-	require.NoError(t, Run(cfg, exp, logger))
+	require.NoError(t, Run(cfg, expFunc, logger))
 
-	assert.Equal(t, "custom body", exp.logs[0].ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).Body().AsString())
+	assert.Equal(t, "custom body", m.logs[0].ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).Body().AsString())
 }
 
 func TestLogsWithNoTelemetryAttributes(t *testing.T) {
 	cfg := configWithNoAttributes(2, "custom body")
-
-	exp := &mockExporter{}
+	m := &mockExporter{}
+	expFunc := func() (exporter, error) {
+		return m, nil
+	}
 
 	// test
 	logger, _ := zap.NewDevelopment()
-	require.NoError(t, Run(cfg, exp, logger))
+	require.NoError(t, Run(cfg, expFunc, logger))
 
 	time.Sleep(1 * time.Second)
 
 	// verify
-	require.Len(t, exp.logs, 2)
-	for _, log := range exp.logs {
+	require.Len(t, m.logs, 2)
+	for _, log := range m.logs {
 		rlogs := log.ResourceLogs()
 		for i := 0; i < rlogs.Len(); i++ {
 			attrs := rlogs.At(i).ScopeLogs().At(0).LogRecords().At(0).Attributes()
@@ -129,18 +142,20 @@ func TestLogsWithNoTelemetryAttributes(t *testing.T) {
 func TestLogsWithOneTelemetryAttributes(t *testing.T) {
 	qty := 1
 	cfg := configWithOneAttribute(qty, "custom body")
-
-	exp := &mockExporter{}
+	m := &mockExporter{}
+	expFunc := func() (exporter, error) {
+		return m, nil
+	}
 
 	// test
 	logger, _ := zap.NewDevelopment()
-	require.NoError(t, Run(cfg, exp, logger))
+	require.NoError(t, Run(cfg, expFunc, logger))
 
 	time.Sleep(1 * time.Second)
 
 	// verify
-	require.Len(t, exp.logs, qty)
-	for _, log := range exp.logs {
+	require.Len(t, m.logs, qty)
+	for _, log := range m.logs {
 		rlogs := log.ResourceLogs()
 		for i := 0; i < rlogs.Len(); i++ {
 			attrs := rlogs.At(i).ScopeLogs().At(0).LogRecords().At(0).Attributes()
@@ -152,18 +167,20 @@ func TestLogsWithOneTelemetryAttributes(t *testing.T) {
 func TestLogsWithMultipleTelemetryAttributes(t *testing.T) {
 	qty := 1
 	cfg := configWithMultipleAttributes(qty, "custom body")
-
-	exp := &mockExporter{}
+	m := &mockExporter{}
+	expFunc := func() (exporter, error) {
+		return m, nil
+	}
 
 	// test
 	logger, _ := zap.NewDevelopment()
-	require.NoError(t, Run(cfg, exp, logger))
+	require.NoError(t, Run(cfg, expFunc, logger))
 
 	time.Sleep(1 * time.Second)
 
 	// verify
-	require.Len(t, exp.logs, qty)
-	for _, log := range exp.logs {
+	require.Len(t, m.logs, qty)
+	for _, log := range m.logs {
 		rlogs := log.ResourceLogs()
 		for i := 0; i < rlogs.Len(); i++ {
 			attrs := rlogs.At(i).ScopeLogs().At(0).LogRecords().At(0).Attributes()

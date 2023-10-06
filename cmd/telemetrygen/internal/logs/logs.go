@@ -53,16 +53,18 @@ func Start(cfg *Config) error {
 		return fmt.Errorf("'telemetrygen logs' only supports insecure gRPC")
 	}
 
-	// only support grpc in insecure mode
-	clientConn, err := grpc.DialContext(context.TODO(), cfg.Endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return err
-	}
-	exporter := &gRPCClientExporter{
-		client: plogotlp.NewGRPCClient(clientConn),
+	expFunc := func() (exporter, error) {
+		// only support grpc in insecure mode
+		clientConn, err := grpc.DialContext(context.TODO(), cfg.Endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, err
+		}
+		return &gRPCClientExporter{
+			client: plogotlp.NewGRPCClient(clientConn),
+		}, nil
 	}
 
-	if err = Run(cfg, exporter, logger); err != nil {
+	if err = Run(cfg, expFunc, logger); err != nil {
 		logger.Error("failed to stop the exporter", zap.Error(err))
 		return err
 	}
@@ -71,7 +73,7 @@ func Start(cfg *Config) error {
 }
 
 // Run executes the test scenario.
-func Run(c *Config, exp exporter, logger *zap.Logger) error {
+func Run(c *Config, expFunc func() (exporter, error), logger *zap.Logger) error {
 	if c.TotalDuration > 0 {
 		c.NumLogs = 0
 	} else if c.NumLogs <= 0 {
@@ -105,7 +107,13 @@ func Run(c *Config, exp exporter, logger *zap.Logger) error {
 			index:          i,
 		}
 
-		go w.simulateLogs(res, exp, c.GetTelemetryAttributes())
+		logsExporter, err := expFunc()
+		if err != nil {
+			w.logger.Error("failed to create the exporter", zap.Error(err))
+			return err
+		}
+
+		go w.simulateLogs(res, logsExporter, c.GetTelemetryAttributes())
 	}
 	if c.TotalDuration > 0 {
 		time.Sleep(c.TotalDuration)
